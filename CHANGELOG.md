@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-08-22
+
+### Changed
+- **Full-text acquisition: the downloader's exit codes now distinguish "no full text" from
+  "your session died"** (`paper-review/fulltext-acquisition.md`, shared by `/paper-review` and
+  `/paper-digest`). paper-fetch v1.5.0 splits the old catch-all `2` into `2` (a route ran and
+  came back empty — the only code that is evidence about the paper), `3` (auth failed / session
+  expired) and `6` (no route for that publisher). An expired session fails each paper
+  separately, and each failure reads like "this paper has no route": one batch recorded nine
+  papers as paywalled when a single automatic login fetched all nine. The reference now says to
+  check the session before a batch and abort the batch if it is dead, and the manual
+  link-resolver step is gated on exit `2` alone.
+- **Pass `--title` to the downloader.** A `%PDF` check cannot tell an article from the whole
+  supplement it sits in — conference abstracts carry the supplement's DOI, so every route
+  honestly returns the entire proceedings volume (20% of the successful downloads in one
+  49-paper batch, including a 563-page file recorded as fine). With a title the downloader
+  verifies the article is in the file and cuts it out. Reading the wrong document produces a
+  confident digest of somebody else's study — worse than reporting no full text.
+- `config.example.yaml`: the `library_script` example path follows the reference
+  implementation's rename (`skills/paper-download` → `skills/paper-fetch`) and documents the
+  `--title` argument.
+
 ## [0.2.2] — 2026-07-14
 
 ### Fixed

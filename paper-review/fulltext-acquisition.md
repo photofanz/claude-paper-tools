@@ -20,11 +20,24 @@ Update THIS file when a route changes — don't re-fork into the skills.
    route for anything paywalled-but-subscribed**. It logs into your library's proxy by itself
    (stored credentials + offline CAPTCHA solve); no manual login, no human in the loop:
    ```
-   python ${fulltext.library_script} fetch <DOI> <out.pdf>
+   python ${fulltext.library_script} fetch <DOI> <out.pdf> --title "<article title>"
    ```
-   Exit `0` = PDF written (validate `%PDF`). `2` = no route / auth failed. `4` = another fetch
-   holds the browser profile. `5` = watchdog abort. **Treat 4 and 5 as "retry serially later",
-   not as "no full text"** — they are contention or a hang, not absence.
+   Exit `0` = PDF written (validate `%PDF`). `2` = a route ran and came back empty — **the only
+   code that is evidence about the paper**. `3` = auth failed / session expired. `4` = another
+   fetch holds the browser profile. `5` = watchdog abort. `6` = no route for this publisher
+   prefix. **Treat 3, 4, 5 and 6 as "fix it and retry", not as "no full text"** — they are
+   session, contention, a hang, and coverage; none of them is absence.
+   - **Check the session before a batch, and abort the batch if it is dead** (`… check`). An
+     expired session fails each paper separately, and every one of those failures reads like
+     "this paper has no route": one batch recorded nine papers as paywalled when a single
+     (fully automatic) login fetched all nine. A "no full text" conclusion is only valid if
+     the session was valid at the time.
+   - **Pass `--title`.** A `%PDF` check cannot tell the article from the whole supplement it
+     sits in: conference abstracts carry the *supplement's* DOI, so every route honestly
+     returns the entire proceedings volume — 20% of the successful downloads in one 49-paper
+     batch, including a 563-page file recorded as fine. With a title the downloader verifies
+     the article is in the file and cuts it out of the volume. Reading the wrong document is
+     worse than reading none: it produces a confident digest of somebody else's study.
    - **Serial by design**: one exclusive browser profile. **Never run it from parallel agents** —
      concurrent calls queue and then fail. Batch callers must fetch in a serial pre-pass.
      Blank `library_script` → skip. Reference implementation:
@@ -32,7 +45,8 @@ Update THIS file when a route changes — don't re-fork into the skills.
    - A hit here is common even when the link resolver *claims* no subscription — trust the
      downloader's actual result over the resolver's flag.
 7. **Institutional link resolver** *(config: `fulltext.sfx_base`)* — **last resort, manual.**
-   Only after route 6 is unavailable (blank config) or returned exit `2`. Build the OpenURL from
+   Only after route 6 is unavailable (blank config) or returned exit `2` (not `3` or `6` — fix
+   the session, or add a route, first). Build the OpenURL from
    `sfx_base` (substitute `{DOI}`) → Claude-in-Chrome. Blank `sfx_base` → skip.
    - ⚠️ This route can dead-end at an interactive login/CAPTCHA page an agent cannot pass. **Do
      not burn turns retrying it** — report "full text unavailable" instead. If you opened a
